@@ -35,9 +35,6 @@ Args:
 """
 function get_los_enu(lat_lons::AbstractArray{<:AbstractFloat, 2}; xyz_los_vecs=nothing, 
                      dbfile=nothing, param_dict=nothing)
-    if !isnothing(los_map_file) && isfile(los_map_file)
-    end
-
     if isnothing(xyz_los_vecs)
         xyz_los_vecs = calculate_los_xyz(lat_lons, dbfile=dbfile, param_dict=param_dict)
     end
