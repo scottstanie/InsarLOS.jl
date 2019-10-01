@@ -105,7 +105,7 @@ function _compute_xyz(lat, lon)
     # dem_file, dem_rsc_file = readlines("params")
 
     # TODO: what directory should this be??
-    dem_rsc_file = Sario.find_rsc_file(directory="../")
+    dem_rsc_file = Sario.pysario.find_rsc_file(directory="../")
     dem_rsc = Sario.load(dem_rsc_file)
 
     row, col = latlon_to_rowcol(dem_rsc, lat, lon)
@@ -450,11 +450,11 @@ function create_los_map(;directory=".", dem_rsc=nothing, outfile="los_map.h5",
     orbinfo_file = joinpath(dbpath, orbinfo_filename)
     timeorbit, xorbit, vorbit = read_orbit_vector(orbinfo_file)
 
-    dem_rsc_file = Sario.find_rsc_file(directory=".")
+    dem_rsc_file = Sario.pysario.find_rsc_file(directory=".")
     @show dem_rsc_file
     dem_rsc = Sario.load(dem_rsc_file)
 
-    dem_file = replace(Sario.find_rsc_file(directory=".."), ".rsc" => "")
+    dem_file = replace(Sario.pysario.find_rsc_file(directory=".."), ".rsc" => "")
     @show dem_file
     dem = Sario.load(dem_file)
 
