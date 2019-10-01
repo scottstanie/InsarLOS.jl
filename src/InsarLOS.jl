@@ -106,12 +106,12 @@ function _compute_xyz(lat, lon)
 
     # TODO: what directory should this be??
     dem_rsc_file = Sario.find_rsc_file(directory="../")
-    dem_file = replace(dem_rsc_file, ".rsc" => "")
     dem_rsc = Sario.load(dem_rsc_file)
-    
+
     row, col = latlon_to_rowcol(dem_rsc, lat, lon)
     # println("($lat, $lon) is at ($row, $col)")
 
+    dem_file = replace(dem_rsc_file, ".rsc" => "")
     # Load just the 1 value from the DEM
     dem_height = Sario.load(dem_file, (row, col))
 
@@ -433,7 +433,17 @@ end
 
 
 """Create a map with 3 layers (E, N, U) of the ENU vectors for every pixel within a dem_rsc"""
-function create_los_map(dem_rsc, dbfile, outfile=nothing)
+function create_los_map(;directory=".", dem_rsc=nothing, outfile="los_map.h5", 
+                        dbpath=nothing, dbfile=nothing)
+    if isnothing(dbfile)
+        isnothing(dbpath) && error("need dbfile or dbpath")
+        dbfile = Glob.glob(joinpath(dbpath, "/*.db*"))[1]
+    end
+
+    if isnothing(dem_rsc)
+        dem_rsc = Sario.load(joinpath(directory, "dem.rsc"))
+    end
+
     param_dict = load_all_params(dbfile)
     orbinfo_filename = param_dict["orbinfo"]  # The .db file doesn't save path
     dbpath = filepath(dbfile)
@@ -443,6 +453,7 @@ function create_los_map(dem_rsc, dbfile, outfile=nothing)
     dem_rsc_file = Sario.find_rsc_file(directory=".")
     @show dem_rsc_file
     dem_rsc = Sario.load(dem_rsc_file)
+
     dem_file = replace(Sario.find_rsc_file(directory=".."), ".rsc" => "")
     @show dem_file
     dem = Sario.load(dem_file)
