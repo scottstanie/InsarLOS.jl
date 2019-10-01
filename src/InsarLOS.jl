@@ -424,6 +424,7 @@ function _find_db_path(geo_path)
 end
 
 
+"""Convert the dem rsc dict into a grid of longitudes/latitudes"""
 function grid(dem_rsc)
     x = range(dem_rsc["x_first"], step=dem_rsc["x_step"], length=dem_rsc["width"])
     y = range(dem_rsc["y_first"], step=dem_rsc["y_step"], length=dem_rsc["file_length"])
@@ -432,7 +433,7 @@ end
 
 
 """Create a map with 3 layers (E, N, U) of the ENU vectors for every pixel within a dem_rsc"""
-function los_map(dem_rsc, dbfile, outfile=nothing)
+function create_los_map(dem_rsc, dbfile, outfile=nothing)
     param_dict = load_all_params(dbfile)
     orbinfo_filename = param_dict["orbinfo"]  # The .db file doesn't save path
     dbpath = filepath(dbfile)
@@ -447,7 +448,10 @@ function los_map(dem_rsc, dbfile, outfile=nothing)
     dem = Sario.load(dem_file)
 
     xx, yy = grid(dem_rsc)
-    out = Array{Float64, 3}(undef, (length(yy), length(xx), 3))
+    enu_out = Array{Float64, 3}(undef, (length(yy), length(xx), 3))
+    # lats = Array{Float64, 2}(undef, (length(yy), length(xx)))
+    # lons = similar(lats)
+
     Threads.@threads for j in 1:length(xx)
         for i in 1:length(yy)
     # for (j, x) in enumerate(xx)
@@ -457,15 +461,42 @@ function los_map(dem_rsc, dbfile, outfile=nothing)
             x = xx[j]
             xyz_los_vecs = calculate_los_xyz(y, x, dem, dem_rsc, param_dict, timeorbit, xorbit, vorbit)
             # println("$y $x is at ", InsarTimeseries.latlon_to_rowcol(dem_rsc, y, x))
-            out[i, j, :] = los_to_enu([y, x], xyz_los_vecs=xyz_los_vecs)
+            enu_out[i, j, :] = los_to_enu([y, x], xyz_los_vecs=xyz_los_vecs)
         end
     end
     if !isnothing(outfile)
         println("Writing to $outfile dset 'stack'")
-        h5write(outfile, "stack", permutedims(out, (2, 1, 3)))
+        h5open(outfile, "w") do f
+            write(f, "stack", permutedims(enu_out, (2, 1, 3)))
+            write(f, "lats", collect(yy))
+            write(f, "lons", collect(xx))
+        end
     end
 
+    return enu_out
+end
+
+
+findnearest(A::AbstractArray, t) = findmin(abs.(A .- t))[2]
+
+"""Given an array of lat/lon points, read the E,N,U coeffs from the LOS map"""
+function read_los_map(lat_lons::Array{<:AbstractFloat, 2}, los_map::Array{<:AbstractFloat, 3}, lats, lons)
+    num_points = size(lat_lons, 2)
+    out = Array{eltype(lat_lons), 2}(undef, (3, num_points))
+    for i = 1:num_points
+        lat, lon = lat_lons[:, i]
+        row = findnearest(lats, lat)
+        col = findnearest(lons, lon)
+        out[:, i] = los_map[row, col, :]
+    end
     return out
+end
+
+function read_los_map(lat_lons::Array{<:AbstractFloat, 2}, los_map_fname::String)
+    los_map = permutedims(h5read(los_map_fname, "stack"), (2, 1, 3))
+    lats = h5read(los_map_fname, "lats")
+    lons = h5read(los_map_fname, "lons")
+    return read_los_map(lat_lons, los_map, lats, lons)
 end
 
 end # module

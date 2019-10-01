@@ -1,11 +1,16 @@
 
 function convert_xyz_latlon_to_enu(lat_lons::Array{<:AbstractFloat, 2}, xyz_array::Array{<:AbstractFloat, 2})
-    out = similar(xyz_array)
-    for i = 1:size(lat_lons, 2)
+    num_points = size(lat_lons, 2)
+    out = Array{eltype(lat_lons), 2}(undef, (3, num_points))
+    for i = 1:num_points
         out[:, i] = rotate_xyz_to_enu(xyz_array[:, i], lat_lons[:, i]...)
     end
     return out
 end
+
+# If we already pre-computed the ENU coeff map, just read from that
+function convert_xyz_latlon_to_enu(lat_lons::Array{<:AbstractFloat, 2},
+                                   los_map::Array{<:AbstractFloat, 3})  = read_los_map(los_map, lat_lons)   
 
 
 """Rotates a vector in XYZ coords to ENU
