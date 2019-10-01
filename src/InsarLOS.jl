@@ -2,6 +2,7 @@ __precompile__(true)
 
 module InsarLOS
 
+
 include("./projections.jl")
 
 import Sario
@@ -16,8 +17,12 @@ const EARTH_E2 = 0.0066943799901499996
 
 const SOL = 299792458
 
+const MAP_FILENAME = "los_map.h5"
 
-# TODO: make a function to read the pre-created los_map
+
+"""Read the enu coefficients from a pre-computed LOS map by `create_los_map`"""
+get_los_enu(lat_lons::AbstractArray{<:AbstractFloat},
+            los_map_file::AbstractString=MAP_FILENAME) = read_los_map(lat_lons, los_map_file)
 
 """Calculate the LOS vector in ENU from a lat/lon Array
 Can also take in the pre-computed xyz los vectors
@@ -28,7 +33,11 @@ Args:
     Optional: dbfile to read orbit parameters
 
 """
-function los_to_enu(lat_lons::Array{<:AbstractFloat, 2}; xyz_los_vecs=nothing, dbfile=nothing, param_dict=nothing)
+function get_los_enu(lat_lons::AbstractArray{<:AbstractFloat, 2}; xyz_los_vecs=nothing, 
+                     dbfile=nothing, param_dict=nothing)
+    if !isnothing(los_map_file) && isfile(los_map_file)
+    end
+
     if isnothing(xyz_los_vecs)
         xyz_los_vecs = calculate_los_xyz(lat_lons, dbfile=dbfile, param_dict=param_dict)
     end
@@ -37,8 +46,9 @@ function los_to_enu(lat_lons::Array{<:AbstractFloat, 2}; xyz_los_vecs=nothing, d
                                      reshape(xyz_los_vecs, 3, :))
 end
 
-function los_to_enu(lat_lons::Array{<:AbstractFloat, 1}; xyz_los_vecs=nothing, dbfile=nothing, param_dict=nothing)
-    return los_to_enu(reshape(lat_lons, :, 1), xyz_los_vecs=xyz_los_vecs, dbfile=dbfile, param_dict=param_dict)
+function get_los_enu(lat_lons::AbstractArray{<:AbstractFloat, 1}; xyz_los_vecs=nothing,
+                     dbfile=nothing, param_dict=nothing)
+    return get_los_enu(reshape(lat_lons, :, 1), xyz_los_vecs=xyz_los_vecs, dbfile=dbfile, param_dict=param_dict)
 end
 
 
@@ -85,12 +95,12 @@ function calculate_los_xyz(lat::T, lon::T, dem, dem_rsc, param_dict, timeorbit, 
     return nothing
 end
 
-function calculate_los_xyz(lat_lon::Array{<:AbstractFloat, 1}; dbfile=nothing, param_dict=nothing)
+function calculate_los_xyz(lat_lon::AbstractArray{<:AbstractFloat, 1}; dbfile=nothing, param_dict=nothing)
     lat, lon = lat_lon
     return calculate_los_xyz(lat, lon, dbfile=dbfile, param_dict=param_dict)
 end
 
-function calculate_los_xyz(lat_lon_vecs::Array{<:AbstractFloat, 2}; dbfile=nothing, param_dict=nothing)
+function calculate_los_xyz(lat_lon_vecs::AbstractArray{<:AbstractFloat, 2}; dbfile=nothing, param_dict=nothing)
     num_vecs = size(lat_lon_vecs, 2)
     xyz_vecs = Array{eltype(lat_lon_vecs)}(undef, (3, ))
     for i=1:num_vecs
@@ -264,7 +274,7 @@ function read_orbit_vector(orbtiming_file)
 end
 
 
-function llh_to_xyz(llh::Array{<:AbstractFloat, 1})
+function llh_to_xyz(llh::AbstractArray{<:AbstractFloat, 1})
     lat, lon, h = llh
 
     rad_earth = EARTH_SMA/sqrt(1.0 - EARTH_E2*sin(lat)^2)
@@ -437,8 +447,10 @@ function create_los_map(;directory=".", dem_rsc=nothing, outfile="los_map.h5",
                         dbpath=nothing, dbfile=nothing)
     if isnothing(dbfile)
         isnothing(dbpath) && error("need dbfile or dbpath")
-        dbfile = Glob.glob(joinpath(dbpath, "/*.db*"))[1]
+        @show dbpath
+        dbfile = Glob.glob("*.db*", dbpath)[1]
     end
+    @show dbfile
 
     if isnothing(dem_rsc)
         dem_rsc = Sario.load(joinpath(directory, "dem.rsc"))
@@ -472,7 +484,7 @@ function create_los_map(;directory=".", dem_rsc=nothing, outfile="los_map.h5",
             x = xx[j]
             xyz_los_vecs = calculate_los_xyz(y, x, dem, dem_rsc, param_dict, timeorbit, xorbit, vorbit)
             # println("$y $x is at ", InsarTimeseries.latlon_to_rowcol(dem_rsc, y, x))
-            enu_out[i, j, :] = los_to_enu([y, x], xyz_los_vecs=xyz_los_vecs)
+            enu_out[i, j, :] = get_los_enu([y, x], xyz_los_vecs=xyz_los_vecs)
         end
     end
     if !isnothing(outfile)
@@ -491,7 +503,7 @@ end
 findnearest(A::AbstractArray, t) = findmin(abs.(A .- t))[2]
 
 """Given an array of lat/lon points, read the E,N,U coeffs from the LOS map"""
-function read_los_map(lat_lons::Array{<:AbstractFloat, 2}, los_map::Array{<:AbstractFloat, 3}, lats, lons)
+function read_los_map(lat_lons::AbstractArray{<:AbstractFloat, 2}, los_map::AbstractArray{<:AbstractFloat, 3}, lats, lons)
     num_points = size(lat_lons, 2)
     out = Array{eltype(lat_lons), 2}(undef, (3, num_points))
     for i = 1:num_points
@@ -503,11 +515,13 @@ function read_los_map(lat_lons::Array{<:AbstractFloat, 2}, los_map::Array{<:Abst
     return out
 end
 
-function read_los_map(lat_lons::Array{<:AbstractFloat, 2}, los_map_fname::String)
-    los_map = permutedims(h5read(los_map_fname, "stack"), (2, 1, 3))
-    lats = h5read(los_map_fname, "lats")
-    lons = h5read(los_map_fname, "lons")
+function read_los_map(lat_lons::AbstractArray{<:AbstractFloat, 2}, los_map_file::String=MAP_FILENAME)
+    los_map = permutedims(h5read(los_map_file, "stack"), (2, 1, 3))
+    lats = h5read(los_map_file, "lats")
+    lons = h5read(los_map_file, "lons")
     return read_los_map(lat_lons, los_map, lats, lons)
 end
+
+read_los_map(lat_lons::AbstractArray{<:AbstractFloat, 1}, los_map_file::String=MAP_FILENAME) = read_los_map(reshape(lat_lons, :, 1), los_map_file)
 
 end # module
