@@ -445,7 +445,7 @@ function los_map(dem_rsc, dbfile, outfile=nothing)
     @show dem_file
     dem = Sario.load(dem_file)
 
-    xx, yy = InsarTimeseries.grid(dem_rsc)
+    xx, yy = grid(dem_rsc)
     out = Array{Float64, 3}(undef, (length(yy), length(xx), 3))
     Threads.@threads for j in 1:length(xx)
         for i in 1:length(yy)
@@ -456,7 +456,7 @@ function los_map(dem_rsc, dbfile, outfile=nothing)
             x = xx[j]
             xyz_los_vecs = calculate_los_xyz(y, x, dem, dem_rsc, param_dict, timeorbit, xorbit, vorbit)
             # println("$y $x is at ", InsarTimeseries.latlon_to_rowcol(dem_rsc, y, x))
-            out[i, j, :] = InsarTimeseries.los_to_enu([y, x], xyz_los_vecs=xyz_los_vecs)
+            out[i, j, :] = los_to_enu([y, x], xyz_los_vecs=xyz_los_vecs)
         end
     end
     if !isnothing(outfile)
