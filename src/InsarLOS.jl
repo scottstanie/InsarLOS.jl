@@ -9,6 +9,7 @@ import Sario
 import Glob
 using SQLite
 using LinearAlgebra
+using HDF5
 
 const EARTH_SMA = 6378137.0
 const EARTH_E2 = 0.0066943799901499996
