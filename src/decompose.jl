@@ -8,8 +8,9 @@ function solve_east_up(asc_img, desc_img, asc_los_map, desc_los_map)
 
     for jj = 1:size(asc_los_map, 2)
         for ii = 1:size(asc_los_map, 1)
-            asc_eu = abs.(asc_los_map[ii, jj, [1, 3]])
-            desc_eu = abs.(desc_los_map[ii, jj, [1, 3]])
+            # TODO: WHY -1 needed?
+            asc_eu = asc_los_map[ii, jj, [1, 3]] .* -1
+            desc_eu = desc_los_map[ii, jj, [1, 3]] .* -1
 
             A = hcat(asc_eu, desc_eu)'
             b = [asc_img[ii, jj] ; desc_img[ii, jj]]
@@ -32,9 +33,14 @@ function solve_east_up(asc_path, desc_path, dset, asc_fname, desc_fname)
 end
 
 function plot_eu(east, up; cmap="seismic_wide", vm=20)
-    fig, axes = plt.subplots(1, 2)
-    axes[1].imshow(up, cmap=cmap, vmin=-vm, vmax=vm)
-    axes[2].imshow(east, cmap=cmap, vmin=-vm, vmax=vm)
+    fig, axes = plt.subplots(1, 2, sharex=true, sharey=true)
+    axim1 = axes[1].imshow(up, cmap=cmap, vmin=-vm, vmax=vm)
+    fig.colorbar(axim1, ax=axes[1])
+
+    vmeast = 0.5 * vm
+    axim2 = axes[2].imshow(east, cmap=cmap, vmin=-vmeast, vmax=vmeast)
+    fig.colorbar(axim2, ax=axes[2])
+
     axes[1].set_title("up")
     axes[2].set_title("east")
     fig.suptitle(title)
