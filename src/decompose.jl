@@ -22,7 +22,9 @@ function solve_east_up(asc_img, desc_img, asc_los_map, desc_los_map)
     return east, up
 end
 
-function solve_east_up(asc_path, desc_path, dset, asc_fname, desc_fname)
+function solve_east_up(asc_path::AbstractString, desc_path::AbstractString,
+                       asc_fname::AbstractString, desc_fname::AbstractString=asc_fname, 
+                       dset="velos/1")
     asc_img = permutedims(h5read(joinpath(asc_path, asc_fname), dset))
     desc_img = permutedims(h5read(joinpath(desc_path, desc_fname), dset))
 
@@ -31,12 +33,12 @@ function solve_east_up(asc_path, desc_path, dset, asc_fname, desc_fname)
     return solve_east_up(asc_img, desc_img, asc_los_map, desc_los_map)
 end
 
-function plot_eu(east, up; cmap="seismic_wide", vm=20)
+function plot_eu(east, up; cmap="seismic_wide", vm=20, east_scale=1.0, title="")
     fig, axes = plt.subplots(1, 2, sharex=true, sharey=true)
     axim1 = axes[1].imshow(up, cmap=cmap, vmin=-vm, vmax=vm)
     fig.colorbar(axim1, ax=axes[1])
 
-    vmeast = 0.5 * vm
+    vmeast = east_scale * vm
     axim2 = axes[2].imshow(east, cmap=cmap, vmin=-vmeast, vmax=vmeast)
     fig.colorbar(axim2, ax=axes[2])
 
@@ -44,6 +46,17 @@ function plot_eu(east, up; cmap="seismic_wide", vm=20)
     axes[2].set_title("east")
     fig.suptitle(title)
     return fig, axes
+end
+
+function demo_east_up(fn="velocities_prune_l2.h5", dset="velos/1"; full=false, east_scale=1.0)
+    if full
+        asc_path, desc_path = ("/data1/scott/pecos/path78-bbox2/igrams_looked/", "/data4/scott/path85/stitched/igrams_looked/")
+    else
+        asc_path, desc_path = ("/data3/scott/pecos/zoom_pecos_full_78/igrams_looked/", "/data3/scott/pecos/zoom_pecos_full_85/igrams_looked/", )
+    end
+    east, up = solve_east_up(asc_path, desc_path, fn, fn, dset)
+    fig, axes = plot_eu(east, up; cmap="seismic_wide", vm=20, title="$fn: $dset", east_scale=east_scale)
+    return east, up, fig, axes
 end
 
 
