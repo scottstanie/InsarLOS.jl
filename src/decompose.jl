@@ -8,9 +8,8 @@ function solve_east_up(asc_img, desc_img, asc_los_map, desc_los_map)
 
     for jj = 1:size(asc_los_map, 2)
         for ii = 1:size(asc_los_map, 1)
-            # TODO: WHY -1 needed?
-            asc_eu = asc_los_map[ii, jj, [1, 3]] .* -1
-            desc_eu = desc_los_map[ii, jj, [1, 3]] .* -1
+            asc_eu = asc_los_map[ii, jj, [1, 3]]
+            desc_eu = desc_los_map[ii, jj, [1, 3]]
 
             A = hcat(asc_eu, desc_eu)'
             b = [asc_img[ii, jj] ; desc_img[ii, jj]]

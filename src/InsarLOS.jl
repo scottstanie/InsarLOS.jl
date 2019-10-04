@@ -52,7 +52,8 @@ end
 filepath(full_path) = joinpath(splitpath(full_path)[1:end-1]...)
 #
 # Start of fortran converted functions:
-#
+
+"""Calculate the line of sight vector (from ground to satellite) in X,Y,Z coordinates at one lat/lon point"""
 function calculate_los_xyz(lat::T, lon::T; dbfile::Union{String, Nothing}=nothing, param_dict=nothing) where {T<:AbstractFloat}
     if isnothing(param_dict)
         if isnothing(dbfile)
@@ -61,7 +62,7 @@ function calculate_los_xyz(lat::T, lon::T; dbfile::Union{String, Nothing}=nothin
         end
         param_dict = load_all_params(dbfile)
     end
-    xyz = _compute_xyz(lat, lon)
+    xyz_ground = _compute_xyz_ground(lat, lon)
 
     orbinfo_filename = param_dict["orbinfo"]  # The .db file doesn't save path
     dbpath = filepath(dbfile)
@@ -71,7 +72,7 @@ function calculate_los_xyz(lat::T, lon::T; dbfile::Union{String, Nothing}=nothin
 
     for idx=1:param_dict["azimuthBursts"]
         idx = 9
-        vecr = compute_burst_vec(xyz, param_dict, idx, timeorbit, xx, vv)
+        vecr = compute_burst_vec(xyz_ground, param_dict, idx, timeorbit, xx, vv)
         if !isnothing(vecr)
             return vecr
         end
@@ -81,10 +82,10 @@ end
 
 
 function calculate_los_xyz(lat::T, lon::T, dem, dem_rsc, param_dict, timeorbit, xx, vv) where {T<:AbstractFloat}
-    xyz = _compute_xyz(lat, lon, dem, dem_rsc)
+    xyz_ground = _compute_xyz_ground(lat, lon, dem, dem_rsc)
     for idx=1:param_dict["azimuthBursts"]
         idx = 9
-        vecr = compute_burst_vec(xyz, param_dict, idx, timeorbit, xx, vv)
+        vecr = compute_burst_vec(xyz_ground, param_dict, idx, timeorbit, xx, vv)
         if !isnothing(vecr)
             return vecr
         end
@@ -107,7 +108,7 @@ function calculate_los_xyz(lat_lon_vecs::AbstractArray{<:AbstractFloat, 2}; dbfi
     return xyz_vecs
 end
 
-function _compute_xyz(lat, lon)
+function _compute_xyz_ground(lat, lon)
     # TODO: do i wanna get rid of this "params" file?
     # dem_file, dem_rsc_file = readlines("params")
 
@@ -123,17 +124,19 @@ function _compute_xyz(lat, lon)
     dem_height = Sario.load(dem_file, (row, col))
 
     llh = [ deg2rad(lat), deg2rad(lon), dem_height ]
-    xyz = llh_to_xyz(llh)
+    xyz_ground = llh_to_xyz(llh)
+    return xyz_ground
 end
 
-function _compute_xyz(lat, lon, dem, dem_rsc)
+function _compute_xyz_ground(lat, lon, dem, dem_rsc)
     row, col = latlon_to_rowcol(dem_rsc, lat, lon)
 
     # Load just the 1 value from the DEM
     dem_height = dem[row, col]
 
     llh = [ deg2rad(lat), deg2rad(lon), dem_height ]
-    xyz = llh_to_xyz(llh)
+    xyz_ground = llh_to_xyz(llh)
+    return xyz_ground
 end
 
 function latlon_to_rowcol(dem_rsc, lat, lon)
@@ -146,7 +149,7 @@ function latlon_to_rowcol(dem_rsc, lat, lon)
 end
 
 
-function compute_burst_vec(xyz, param_dict, idx, timeorbit, xx, vv)
+function compute_burst_vec(xyz_ground, param_dict, idx, timeorbit, xx, vv)
     dtaz = 1.0 / param_dict["prf"]  # Nazlooks / prf
     tstart = param_dict["azimuthTimeSeconds$idx"]
     tend  = tstart + (param_dict["linesPerBurst"] - 1) * dtaz
@@ -173,7 +176,7 @@ function compute_burst_vec(xyz, param_dict, idx, timeorbit, xx, vv)
 
     # println("Satellite midpoint time,position,velocity: $tmid $xyz_mid $vel_mid")
 
-    tline, range = orbitrangetime(xyz,timeorbit, xx, vv, tmid, xyz_mid, vel_mid)
+    tline, range = orbitrangetime(xyz_ground, timeorbit, xx, vv, tmid, xyz_mid, vel_mid)
     if isnothing(tline) || isnothing(range)
         println("Failed on burst $idx")
         return nothing
@@ -186,10 +189,12 @@ function compute_burst_vec(xyz, param_dict, idx, timeorbit, xx, vv)
     # satv = vv[:, end]
 
     # @show satx, satv
-    dr = xyz - satx
+    # dr = xyz_ground - satx  ORIGINAL: pointing AWAY from satellite (hence -satx)
+    #
+    # We want away from ground, pointing up to satellite for land deformation purposes
+    dr = satx - xyz_ground
     vecr = dr / range
 
-    # println("los vector (away from satellite):, $vecr")
     return vecr
 
 end
