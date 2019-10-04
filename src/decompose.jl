@@ -6,6 +6,7 @@ function solve_east_up(asc_img, desc_img, asc_los_map, desc_los_map)
     east = similar(asc_img)
     up = similar(asc_img)
 
+    @show size(asc_los_map), size(asc_img), size(desc_img)
     for jj = 1:size(asc_los_map, 2)
         for ii = 1:size(asc_los_map, 1)
             asc_eu = asc_los_map[ii, jj, [1, 3]]
@@ -48,34 +49,65 @@ function plot_eu(east, up; cmap="seismic_wide", vm=20, east_scale=1.0, title="")
     return fig, axes
 end
 
-function demo_east_up(fn="velocities_prune_l2.h5", dset="velos/1"; full=false, east_scale=1.0)
+function demo_east_up(fn="velocities_prune_l1.h5", dset="velos/1"; full=false, east_scale=1.0)
     if full
         asc_path, desc_path = ("/data1/scott/pecos/path78-bbox2/igrams_looked/", "/data4/scott/path85/stitched/igrams_looked/")
+        asc_fname, desc_fname = map(x -> joinpath(x, fn), (asc_path, desc_path))
+        asc_img, desc_img = find_overlap_patches(asc_fname, desc_fname, "velos/1")
+
+        asc_dem_rsc = Sario.load_dem_from_h5(asc_fname)
+        desc_dem_rsc = Sario.load_dem_from_h5(desc_fname)
+        asc_los_map = permutedims(h5read(joinpath(asc_path, "los_map.h5"), "stack"), (2, 1, 3))
+        desc_los_map = permutedims(h5read(joinpath(desc_path, "los_map.h5"), "stack"), (2, 1, 3))
+        asc_idxs, desc_idxs = find_overlap_idxs(asc_los_map, desc_los_map, asc_dem_rsc, desc_dem_rsc)
+
+        east, up = solve_east_up(asc_img, desc_img, asc_los_map[asc_idxs..., :], desc_los_map[desc_idxs..., :])
     else
         asc_path, desc_path = ("/data3/scott/pecos/zoom_pecos_full_78/igrams_looked/", "/data3/scott/pecos/zoom_pecos_full_85/igrams_looked/", )
+        east, up = solve_east_up(asc_path, desc_path, fn, fn, dset)
     end
-    east, up = solve_east_up(asc_path, desc_path, fn, fn, dset)
     fig, axes = plot_eu(east, up; cmap="seismic_wide", vm=20, title="$fn: $dset", east_scale=east_scale)
     return east, up, fig, axes
 end
 
 
-function find_overlap_patches(asc_img, desc_img, asc_dem_rsc, desc_dem_rsc)
+function find_overlap_idxs(asc_img, desc_img, asc_dem_rsc, desc_dem_rsc)
     left, right, bottom, top = intersection_corners(asc_dem_rsc, desc_dem_rsc)
     println(left, right, bottom, top)
 
     # asc_patch = asc_velo[32.3:30.71, -104.1:-102.31]
     # desc_patch = desc_velo[32.3:30.71, -104.1:-102.31]
 
-    row1, col1 = nearest_pixel(asc_dem_rsc, lon=left, lat=top)
-    row2, col2 = nearest_pixel(asc_dem_rsc, lon=right, lat=bottom)
-    asc_patch = asc_img[row1:row2, col1:col2]
+    row1, col1 = nearest_pixel(asc_dem_rsc, top, left)
+    row2, col2 = nearest_pixel(asc_dem_rsc, bottom, right)
+    asc_idxs = (row1:row2, col1:col2)
 
-    row1, col1 = nearest_pixel(desc_dem_rsc, lon=left, lat=top)
-    row2, col2 = nearest_pixel(desc_dem_rsc, lon=right, lat=bottom)
-    desc_patch = desc_img[row1:row2, col1:col2]
+    # asc_patch = asc_img[row1:row2, col1:col2]
 
-    return asc_patch, desc_patch
+    row1, col1 = nearest_pixel(desc_dem_rsc, top, left)
+    row2, col2 = nearest_pixel(desc_dem_rsc, bottom, right)
+    desc_idxs = (row1:row2, col1:col2)
+    # desc_patch = desc_img[row1:row2, col1:col2]
+
+    return asc_idxs, desc_idxs
+    # return asc_patch, desc_patch
+end
+
+function find_overlap_patches(asc_fname::AbstractString, desc_fname::AbstractString=asc_fname, dset="velos/1")
+    asc_img = permutedims(h5read(asc_fname, dset))
+    desc_img = permutedims(h5read(desc_fname, dset))
+
+    asc_dem_rsc = Sario.load_dem_from_h5(asc_fname)
+    desc_dem_rsc = Sario.load_dem_from_h5(desc_fname)
+    asc_idxs, desc_idxs = find_overlap_idxs(asc_img, desc_img, asc_dem_rsc, desc_dem_rsc)
+
+    a, d = asc_img[asc_idxs...], desc_img[desc_idxs...]
+    m1 = a .== 0;
+    m2 = d .== 0;
+    mask = m1 .| m2
+    a[mask] .= 0;
+    d[mask] .= 0;
+    return a, d
 end
 
 # function _check_bounds(idx_arr, bound)
