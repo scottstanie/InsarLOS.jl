@@ -29,6 +29,8 @@ function solve_east_up(asc_path::AbstractString, desc_path::AbstractString,
     asc_img = permutedims(h5read(joinpath(asc_path, asc_fname), dset))
     desc_img = permutedims(h5read(joinpath(desc_path, desc_fname), dset))
 
+    asc_img, desc_img = _mask_asc_desc(asc_img, desc_img)
+
     asc_los_map = permutedims(h5read(joinpath(asc_path, "los_map.h5"), "stack"), (2, 1, 3))
     desc_los_map = permutedims(h5read(joinpath(desc_path, "los_map.h5"), "stack"), (2, 1, 3))
     return solve_east_up(asc_img, desc_img, asc_los_map, desc_los_map)
@@ -93,6 +95,15 @@ function find_overlap_idxs(asc_img, desc_img, asc_dem_rsc, desc_dem_rsc)
     # return asc_patch, desc_patch
 end
 
+function _mask_asc_desc(a, d)
+    m1 = a .== 0;
+    m2 = d .== 0;
+    mask = m1 .| m2
+    a[mask] .= 0;
+    d[mask] .= 0;
+    return a, d
+end
+
 function find_overlap_patches(asc_fname::AbstractString, desc_fname::AbstractString=asc_fname, dset="velos/1")
     asc_img = permutedims(h5read(asc_fname, dset))
     desc_img = permutedims(h5read(desc_fname, dset))
@@ -102,11 +113,7 @@ function find_overlap_patches(asc_fname::AbstractString, desc_fname::AbstractStr
     asc_idxs, desc_idxs = find_overlap_idxs(asc_img, desc_img, asc_dem_rsc, desc_dem_rsc)
 
     a, d = asc_img[asc_idxs...], desc_img[desc_idxs...]
-    m1 = a .== 0;
-    m2 = d .== 0;
-    mask = m1 .| m2
-    a[mask] .= 0;
-    d[mask] .= 0;
+    a, d = _mask_asc_desc(a, d)
     return a, d
 end
 
