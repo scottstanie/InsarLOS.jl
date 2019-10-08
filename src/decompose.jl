@@ -56,7 +56,7 @@ function demo_east_up(fn="velocities_prune_l1.h5"; dset="velos/1", full=false, e
     if full
         asc_path, desc_path = ("/data1/scott/pecos/path78-bbox2/igrams_looked/", "/data4/scott/path85/stitched/igrams_looked/")
         asc_fname, desc_fname = map(x -> joinpath(x, fn), (asc_path, desc_path))
-        asc_img, desc_img = find_overlap_patches(asc_fname, desc_fname, dset)
+        asc_img, desc_img = find_overlaps(asc_fname, desc_fname, dset)
 
         asc_demrsc = Sario.load_dem_from_h5(asc_fname)
         desc_demrsc = Sario.load_dem_from_h5(desc_fname)
@@ -74,48 +74,41 @@ function demo_east_up(fn="velocities_prune_l1.h5"; dset="velos/1", full=false, e
 end
 
 
-function find_overlap_idxs(asc_img, desc_img, asc_demrsc, desc_demrsc)
-    left, right, bottom, top = MapImages.intersection_corners(asc_demrsc, desc_demrsc)
-    println(left, right, bottom, top)
 
-    # asc_patch = asc_velo[32.3:30.71, -104.1:-102.31]
-    # desc_patch = desc_velo[32.3:30.71, -104.1:-102.31]
-
-    row1, col1 = MapImages.nearest_pixel(asc_demrsc, top, left)
-    row2, col2 = MapImages.nearest_pixel(asc_demrsc, bottom, right)
-    asc_idxs = (row1:row2, col1:col2)
-
-    # asc_patch = asc_img[row1:row2, col1:col2]
-
-    row1, col1 = MapImages.nearest_pixel(desc_demrsc, top, left)
-    row2, col2 = MapImages.nearest_pixel(desc_demrsc, bottom, right)
-    desc_idxs = (row1:row2, col1:col2)
-    # desc_patch = desc_img[row1:row2, col1:col2]
-
-    return asc_idxs, desc_idxs
-    # return asc_patch, desc_patch
-end
-
-function find_overlaps(asc_img::MapImage, desc_img::MapImage)
+function find_overlap_idxs(asc_img::MapImage, desc_img::MapImage)
     left, right, bottom, top = intersection_corners(asc.demrsc, desc.demrsc)
     println(left, right, bottom, top)
-
-    # asc_patch = asc_velo[32.3:30.71, -104.1:-102.31]
-    # desc_patch = desc_velo[32.3:30.71, -104.1:-102.31]
 
     row1, col1 = MapImages.nearest_pixel(asc_img, top, left)
     row2, col2 = MapImages.nearest_pixel(asc_img, bottom, right)
     asc_idxs = (row1:row2, col1:col2)
 
-    # asc_patch = asc_img[row1:row2, col1:col2]
-
     row1, col1 = MapImages.nearest_pixel(desc_img, top, left)
     row2, col2 = MapImages.nearest_pixel(desc_img, bottom, right)
     desc_idxs = (row1:row2, col1:col2)
-    # desc_patch = desc_img[row1:row2, col1:col2]
 
     return asc_idxs, desc_idxs
-    # return asc_patch, desc_patch
+end
+
+function find_overlaps(asc_img::MapImage{T, 2}, desc_img::MapImage{T, 2}) where {T}
+    asc_idxs, desc_idxs = find_overlap_idxs(asx_img, desc_img)
+    a, d = asc_img[asc_idxs...], desc_img[desc_idxs...]
+    a, d = _mask_asc_desc(a, d)
+    return a, d
+end
+
+# TODO: these should really be one... figure out
+function find_overlaps(asc_img::MapImage{T, 3}, desc_img::MapImage{T, 3}) where {T}
+    asc_idxs, desc_idxs = find_overlap_idxs(asx_img, desc_img)
+    a, d = asc_img[asc_idxs..., :], desc_img[desc_idxs..., :]
+    a, d = _mask_asc_desc(a, d)
+    return a, d
+end
+
+function find_overlaps(asc_fname::AbstractString, desc_fname::AbstractString=asc_fname, dset="velos/1")
+    asc_img = MapImage(asc_fname, dset)
+    desc_img = MapImage(desc_fname, dset)
+    return find_overlaps(asc_img, desc_img)
 end
 
 function _mask_asc_desc(a, d)
@@ -126,50 +119,4 @@ function _mask_asc_desc(a, d)
     d[mask] .= 0;
     return a, d
 end
-
-function find_overlap_patches(asc_fname::AbstractString, desc_fname::AbstractString=asc_fname, dset="velos/1")
-    asc_img = permutedims(h5read(asc_fname, dset))
-    desc_img = permutedims(h5read(desc_fname, dset))
-
-    asc_demrsc = Sario.load_dem_from_h5(asc_fname)
-    desc_demrsc = Sario.load_dem_from_h5(desc_fname)
-    asc_idxs, desc_idxs = find_overlap_idxs(asc_img, desc_img, asc_demrsc, desc_demrsc)
-
-    a, d = asc_img[asc_idxs...], desc_img[desc_idxs...]
-    a, d = _mask_asc_desc(a, d)
-    return a, d
-end
-
-# function _check_bounds(idx_arr, bound)
-#     int_idxs = Int.(round.(idx_arr))
-#     bad_idxs = int_idxs .< 0 .| int_idxs .>= bound
-# 
-#     if any(bad_idxs)
-#         # Need to check for single numbers, shape ()
-#         if int_idxs.shape:
-#             # Replaces locations of bad_idxs with none
-#             int_idxs = findall(bad_idxs, None, int_idxs)
-#         else:
-#             int_idxs = None
-#         end
-#     end
-# 
-#     return int_idxs
-# end
-
-"""Find the nearest row, col to a given lat and/or lon"""
-function nearest_pixel(demrsc::DemRsc, lat::AbstractFloat, lon::AbstractFloat)
-    @show lon - demrsc.x_first
-    @show demrsc.x_step
-    col_idx = 1 + (lon - demrsc.x_first) / demrsc.x_step
-    # out_row_col[2] = _check_bounds(col_idx_arr, ncols)
-    row_idx = 1 + (lat - demrsc.y_first) / demrsc.y_step
-    # out_row_col[1] = _check_bounds(row_idx_arr, nrows)
-
-    return Int.(round.((row_idx, col_idx)))
-end
-nearest_pixel(demrsc, lats::AbstractArray{AbstractFloat}, 
-              lons::AbstractArray{AbstractFloat}) = [nearest_pixel(demrsc, lat, lon)
-                                                     for (lat, lon) in zip(lats, lons)]
-
 
