@@ -76,7 +76,7 @@ end
 
 
 function find_overlap_idxs(asc_img::MapImage, desc_img::MapImage)
-    left, right, bottom, top = intersection_corners(asc.demrsc, desc.demrsc)
+    left, right, bottom, top = MapImages.intersection_corners(asc_img, desc_img)
     println(left, right, bottom, top)
 
     row1, col1 = MapImages.nearest_pixel(asc_img, top, left)
@@ -91,7 +91,7 @@ function find_overlap_idxs(asc_img::MapImage, desc_img::MapImage)
 end
 
 function find_overlaps(asc_img::MapImage{T, 2}, desc_img::MapImage{T, 2}) where {T}
-    asc_idxs, desc_idxs = find_overlap_idxs(asx_img, desc_img)
+    asc_idxs, desc_idxs = find_overlap_idxs(asc_img, desc_img)
     a, d = asc_img[asc_idxs...], desc_img[desc_idxs...]
     a, d = _mask_asc_desc(a, d)
     return a, d
@@ -99,7 +99,7 @@ end
 
 # TODO: these should really be one... figure out
 function find_overlaps(asc_img::MapImage{T, 3}, desc_img::MapImage{T, 3}) where {T}
-    asc_idxs, desc_idxs = find_overlap_idxs(asx_img, desc_img)
+    asc_idxs, desc_idxs = find_overlap_idxs(asc_img, desc_img)
     a, d = asc_img[asc_idxs..., :], desc_img[desc_idxs..., :]
     a, d = _mask_asc_desc(a, d)
     return a, d
