@@ -6,6 +6,7 @@ module InsarLOS
 include("./projections.jl")
 
 import Sario
+import MapImages
 
 import Glob
 using SQLite
@@ -436,13 +437,6 @@ function _find_db_path(geo_path)
 end
 
 
-"""Convert the dem rsc dict into a grid of longitudes/latitudes"""
-function grid(dem_rsc)
-    x = range(dem_rsc["x_first"], step=dem_rsc["x_step"], length=dem_rsc["width"])
-    y = range(dem_rsc["y_first"], step=dem_rsc["y_step"], length=dem_rsc["file_length"])
-    return x, y
-end
-
 
 """Create a map with 3 layers (E, N, U) of the ENU vectors for every pixel within a dem_rsc"""
 function create_los_map(;directory=".", dem_rsc=nothing, outfile="los_map.h5", 
@@ -472,7 +466,7 @@ function create_los_map(;directory=".", dem_rsc=nothing, outfile="los_map.h5",
     @show dem_file
     dem = Sario.load(dem_file)
 
-    xx, yy = grid(dem_rsc)
+    xx, yy = MapImages.grid(dem_rsc, sparse=true)
     enu_out = Array{Float64, 3}(undef, (length(yy), length(xx), 3))
     # lats = Array{Float64, 2}(undef, (length(yy), length(xx)))
     # lons = similar(lats)

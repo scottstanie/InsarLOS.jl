@@ -75,20 +75,20 @@ end
 
 
 function find_overlap_idxs(asc_img, desc_img, asc_demrsc, desc_demrsc)
-    left, right, bottom, top = intersection_corners(asc_demrsc, desc_demrsc)
+    left, right, bottom, top = MapImages.intersection_corners(asc_demrsc, desc_demrsc)
     println(left, right, bottom, top)
 
     # asc_patch = asc_velo[32.3:30.71, -104.1:-102.31]
     # desc_patch = desc_velo[32.3:30.71, -104.1:-102.31]
 
-    row1, col1 = nearest_pixel(asc_demrsc, top, left)
-    row2, col2 = nearest_pixel(asc_demrsc, bottom, right)
+    row1, col1 = MapImages.nearest_pixel(asc_demrsc, top, left)
+    row2, col2 = MapImages.nearest_pixel(asc_demrsc, bottom, right)
     asc_idxs = (row1:row2, col1:col2)
 
     # asc_patch = asc_img[row1:row2, col1:col2]
 
-    row1, col1 = nearest_pixel(desc_demrsc, top, left)
-    row2, col2 = nearest_pixel(desc_demrsc, bottom, right)
+    row1, col1 = MapImages.nearest_pixel(desc_demrsc, top, left)
+    row2, col2 = MapImages.nearest_pixel(desc_demrsc, bottom, right)
     desc_idxs = (row1:row2, col1:col2)
     # desc_patch = desc_img[row1:row2, col1:col2]
 
@@ -97,20 +97,20 @@ function find_overlap_idxs(asc_img, desc_img, asc_demrsc, desc_demrsc)
 end
 
 function find_overlaps(asc_img::MapImage, desc_img::MapImage)
-    left, right, bottom, top = intersection_corners(asc_demrsc, desc_demrsc)
+    left, right, bottom, top = intersection_corners(asc.demrsc, desc.demrsc)
     println(left, right, bottom, top)
 
     # asc_patch = asc_velo[32.3:30.71, -104.1:-102.31]
     # desc_patch = desc_velo[32.3:30.71, -104.1:-102.31]
 
-    row1, col1 = nearest_pixel(asc_demrsc, top, left)
-    row2, col2 = nearest_pixel(asc_demrsc, bottom, right)
+    row1, col1 = MapImages.nearest_pixel(asc_img, top, left)
+    row2, col2 = MapImages.nearest_pixel(asc_img, bottom, right)
     asc_idxs = (row1:row2, col1:col2)
 
     # asc_patch = asc_img[row1:row2, col1:col2]
 
-    row1, col1 = nearest_pixel(desc_demrsc, top, left)
-    row2, col2 = nearest_pixel(desc_demrsc, bottom, right)
+    row1, col1 = MapImages.nearest_pixel(desc_img, top, left)
+    row2, col2 = MapImages.nearest_pixel(desc_img, bottom, right)
     desc_idxs = (row1:row2, col1:col2)
     # desc_patch = desc_img[row1:row2, col1:col2]
 
@@ -172,27 +172,4 @@ nearest_pixel(demrsc, lats::AbstractArray{AbstractFloat},
               lons::AbstractArray{AbstractFloat}) = [nearest_pixel(demrsc, lat, lon)
                                                      for (lat, lon) in zip(lats, lons)]
 
-_max_min(a, b) = max(minimum(a), minimum(b))
-_least_common(a, b) = min(maximum(a), maximum(b))
-
-# TODO: switch all dems to symbols??
-_symdict(d) = Dict(Symbol(k) => v for (k, v) in d)
-function intersection_corners(dem1, dem2)
-    """
-    Returns:
-        tuple[float]: the boundaries of the intersection box of the 2 areas in order:
-        (lon_left,lon_right,lat_bottom,lat_top)
-    """
-    dem1 = _symdict(dem1)
-    dem2 = _symdict(dem2)
-    corners1 = MapImages.grid_corners(;dem1...)
-    corners2 = MapImages.grid_corners(;dem2...)
-    lons1, lats1 = zip(corners1...)
-    lons2, lats2 = zip(corners2...)
-    left = _max_min(lons1, lons2)
-    right = _least_common(lons1, lons2)
-    bottom = _max_min(lats1, lats2)
-    top = _least_common(lats1, lats2)
-    return left, right, bottom, top
-end
 
