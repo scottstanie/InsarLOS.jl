@@ -5,7 +5,7 @@ module InsarLOS
 
 include("./projections.jl")
 
-import Sario
+using Sario
 import MapImages
 
 import Glob
@@ -82,8 +82,8 @@ function calculate_los_xyz(lat::T, lon::T; dbfile::Union{String, Nothing}=nothin
 end
 
 
-function calculate_los_xyz(lat::T, lon::T, dem, dem_rsc, param_dict, timeorbit, xx, vv) where {T<:AbstractFloat}
-    xyz_ground = _compute_xyz_ground(lat, lon, dem, dem_rsc)
+function calculate_los_xyz(lat::T, lon::T, dem, demrsc, param_dict, timeorbit, xx, vv) where {T<:AbstractFloat}
+    xyz_ground = _compute_xyz_ground(lat, lon, dem, demrsc)
     for idx=1:param_dict["azimuthBursts"]
         idx = 9
         vecr = compute_burst_vec(xyz_ground, param_dict, idx, timeorbit, xx, vv)
@@ -115,9 +115,9 @@ function _compute_xyz_ground(lat, lon)
 
     # TODO: what directory should this be??
     dem_rsc_file = Sario.find_rsc_file(directory="../")
-    dem_rsc = Sario.load(dem_rsc_file)
+    demrsc = Sario.load(dem_rsc_file)
 
-    row, col = latlon_to_rowcol(dem_rsc, lat, lon)
+    row, col = latlon_to_rowcol(demrsc, lat, lon)
     # println("($lat, $lon) is at ($row, $col)")
 
     dem_file = replace(dem_rsc_file, ".rsc" => "")
@@ -129,8 +129,8 @@ function _compute_xyz_ground(lat, lon)
     return xyz_ground
 end
 
-function _compute_xyz_ground(lat, lon, dem, dem_rsc)
-    row, col = latlon_to_rowcol(dem_rsc, lat, lon)
+function _compute_xyz_ground(lat, lon, dem, demrsc)
+    row, col = MapImages.nearest_pixel(demrsc, lat, lon)
 
     # Load just the 1 value from the DEM
     dem_height = dem[row, col]
@@ -138,15 +138,6 @@ function _compute_xyz_ground(lat, lon, dem, dem_rsc)
     llh = [ deg2rad(lat), deg2rad(lon), dem_height ]
     xyz_ground = llh_to_xyz(llh)
     return xyz_ground
-end
-
-function latlon_to_rowcol(dem_rsc, lat, lon)
-    firstlon, firstlat = dem_rsc["x_first"], dem_rsc["y_first"]
-    deltalon, deltalat = dem_rsc["x_step"], dem_rsc["y_step"]
-
-    col = round(Int, (lon-firstlon)/deltalon) + 1
-    row = round(Int, (lat-firstlat)/deltalat) + 1
-    return row, col
 end
 
 
@@ -438,8 +429,8 @@ end
 
 
 
-"""Create a map with 3 layers (E, N, U) of the ENU vectors for every pixel within a dem_rsc"""
-function create_los_map(;directory=".", dem_rsc=nothing, outfile="los_map.h5", 
+"""Create a map with 3 layers (E, N, U) of the ENU vectors for every pixel within a demrsc"""
+function create_los_map(;directory=".", demrsc=nothing, outfile="los_map.h5", 
                         dbpath=nothing, dbfile=nothing)
     if isnothing(dbfile)
         isnothing(dbpath) && error("need dbfile or dbpath")
@@ -448,8 +439,8 @@ function create_los_map(;directory=".", dem_rsc=nothing, outfile="los_map.h5",
     end
     @show dbfile
 
-    if isnothing(dem_rsc)
-        dem_rsc = Sario.load(joinpath(directory, "dem.rsc"))
+    if isnothing(demrsc)
+        demrsc = Sario.load(joinpath(directory, "dem.rsc"))
     end
 
     param_dict = load_all_params(dbfile)
@@ -458,31 +449,30 @@ function create_los_map(;directory=".", dem_rsc=nothing, outfile="los_map.h5",
     orbinfo_file = joinpath(dbpath, orbinfo_filename)
     timeorbit, xorbit, vorbit = read_orbit_vector(orbinfo_file)
 
-    dem_rsc_file = Sario.find_rsc_file(directory=".")
-    @show dem_rsc_file
-    dem_rsc = Sario.load(dem_rsc_file)
 
+    # TODO: this is brittle
     dem_file = replace(Sario.find_rsc_file(directory=".."), ".rsc" => "")
     @show dem_file
     dem = Sario.load(dem_file)
 
-    xx, yy = MapImages.grid(dem_rsc, sparse=true)
+    xx, yy = MapImages.grid(demrsc, sparse=true)
     enu_out = Array{Float64, 3}(undef, (length(yy), length(xx), 3))
     # lats = Array{Float64, 2}(undef, (length(yy), length(xx)))
     # lons = similar(lats)
 
     Threads.@threads for j in 1:length(xx)
         for i in 1:length(yy)
-    # for (j, x) in enumerate(xx)
+    # for (j, x) in enumerate(xx)  # Doesn't seem to work with thread?
         # for (i, y) in enumerate(yy)
             # @show i, j, y, x
             y = yy[i]
             x = xx[j]
-            xyz_los_vecs = calculate_los_xyz(y, x, dem, dem_rsc, param_dict, timeorbit, xorbit, vorbit)
-            # println("$y $x is at ", InsarTimeseries.latlon_to_rowcol(dem_rsc, y, x))
+            xyz_los_vecs = calculate_los_xyz(y, x, dem, demrsc, param_dict, timeorbit, xorbit, vorbit)
+            # println("$y $x is at ", InsarTimeseries.latlon_to_rowcol(demrsc, y, x))
             enu_out[i, j, :] = get_los_enu([y, x], xyz_los_vecs=xyz_los_vecs)
         end
     end
+
     if !isnothing(outfile)
         println("Writing to $outfile dset 'stack'")
         h5open(outfile, "w") do f
@@ -490,6 +480,7 @@ function create_los_map(;directory=".", dem_rsc=nothing, outfile="los_map.h5",
             write(f, "lats", collect(yy))
             write(f, "lons", collect(xx))
         end
+        Sario.save_dem_to_h5(outfile, demrsc)
     end
 
     return enu_out
