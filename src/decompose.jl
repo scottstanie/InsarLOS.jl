@@ -7,7 +7,6 @@ function solve_east_up(asc_img, desc_img, asc_los_map, desc_los_map)
     east = similar(asc_img)
     up = similar(asc_img)
 
-    @show size(asc_los_map), size(asc_img), size(desc_img)
     for jj = 1:size(asc_los_map, 2)
         for ii = 1:size(asc_los_map, 1)
             asc_eu = asc_los_map[ii, jj, [1, 3]]
@@ -52,71 +51,35 @@ function plot_eu(east, up; cmap="seismic_wide", vm=20, east_scale=1.0, title="")
     return fig, axes
 end
 
-function demo_east_up(fn="velocities_prune_l1.h5"; dset="velos/1", full=false, east_scale=1.0)
+function demo_east_up(fn="velocities_prune_l1.h5"; dset="velos/1", full=false, east_scale=1.0, shifta=0.0, shiftd=0.0)
     if full
         asc_path, desc_path = ("/data1/scott/pecos/path78-bbox2/igrams_looked/", "/data4/scott/path85/stitched/igrams_looked/")
         asc_fname, desc_fname = map(x -> joinpath(x, fn), (asc_path, desc_path))
-        asc_img, desc_img = find_overlaps(asc_fname, desc_fname, dset)
+        asc_img, desc_img = MapImages.find_overlaps(asc_fname, desc_fname, dset)
 
-        asc_demrsc = Sario.load_dem_from_h5(asc_fname)
-        desc_demrsc = Sario.load_dem_from_h5(desc_fname)
-        asc_los_map = permutedims(h5read(joinpath(asc_path, "los_map.h5"), "stack"), (2, 1, 3))
-        desc_los_map = permutedims(h5read(joinpath(desc_path, "los_map.h5"), "stack"), (2, 1, 3))
-        asc_idxs, desc_idxs = find_overlap_idxs(asc_los_map, desc_los_map, asc_demrsc, desc_demrsc)
+        asc_los_map = MapImage(joinpath(asc_path, "los_map.h5"), "stack")
+        desc_los_map = MapImage(joinpath(desc_path, "los_map.h5"), "stack")
+        #
+        asc_idxs, desc_idxs = MapImages.find_overlap_idxs(asc_los_map, desc_los_map)
+        # @show size(asc_los_map[asc_idxs..., :]), size(desc_los_map[desc_idxs..., :])
 
-        east, up = solve_east_up(asc_img, desc_img, asc_los_map[asc_idxs..., :], desc_los_map[desc_idxs..., :])
+        east, up = solve_east_up(asc_img .+ shifta, desc_img .+ shiftd, asc_los_map[asc_idxs..., :], desc_los_map[desc_idxs..., :])
     else
         asc_path, desc_path = ("/data3/scott/pecos/zoom_pecos_full_78/igrams_looked/", "/data3/scott/pecos/zoom_pecos_full_85/igrams_looked/", )
         east, up = solve_east_up(asc_path, desc_path, fn, fn, dset)
     end
-    fig, axes = plot_eu(east, up; cmap="seismic_wide", vm=20, title="$fn: $dset", east_scale=east_scale)
-    return east, up, fig, axes
+    # fig, axes = plot_eu(east, up; cmap="seismic_wide", vm=20, title="$fn: $dset", east_scale=east_scale)
+    # return east, up, fig, axes
+    return east, up
 end
 
 
-
-function find_overlap_idxs(asc_img::MapImage, desc_img::MapImage)
-    left, right, bottom, top = MapImages.intersection_corners(asc_img, desc_img)
-    println(left, right, bottom, top)
-
-    row1, col1 = MapImages.nearest_pixel(asc_img, top, left)
-    row2, col2 = MapImages.nearest_pixel(asc_img, bottom, right)
-    asc_idxs = (row1:row2, col1:col2)
-
-    row1, col1 = MapImages.nearest_pixel(desc_img, top, left)
-    row2, col2 = MapImages.nearest_pixel(desc_img, bottom, right)
-    desc_idxs = (row1:row2, col1:col2)
-
-    return asc_idxs, desc_idxs
+function eastups(stations, east, up)
+    easts, ups = [], []
+    for s in stations
+        rc = gps.station_rowcol(s, Dict(up.demrsc))
+        push!(easts, east[rc...])
+        push!(ups, up[rc...])
+    end
+    return easts, ups
 end
-
-function find_overlaps(asc_img::MapImage{T, 2}, desc_img::MapImage{T, 2}) where {T}
-    asc_idxs, desc_idxs = find_overlap_idxs(asc_img, desc_img)
-    a, d = asc_img[asc_idxs...], desc_img[desc_idxs...]
-    a, d = _mask_asc_desc(a, d)
-    return a, d
-end
-
-# TODO: these should really be one... figure out
-function find_overlaps(asc_img::MapImage{T, 3}, desc_img::MapImage{T, 3}) where {T}
-    asc_idxs, desc_idxs = find_overlap_idxs(asc_img, desc_img)
-    a, d = asc_img[asc_idxs..., :], desc_img[desc_idxs..., :]
-    a, d = _mask_asc_desc(a, d)
-    return a, d
-end
-
-function find_overlaps(asc_fname::AbstractString, desc_fname::AbstractString=asc_fname, dset="velos/1")
-    asc_img = MapImage(asc_fname, dset)
-    desc_img = MapImage(desc_fname, dset)
-    return find_overlaps(asc_img, desc_img)
-end
-
-function _mask_asc_desc(a, d)
-    m1 = a .== 0;
-    m2 = d .== 0;
-    mask = m1 .| m2
-    a[mask] .= 0;
-    d[mask] .= 0;
-    return a, d
-end
-
