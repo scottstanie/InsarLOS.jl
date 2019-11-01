@@ -36,14 +36,14 @@ function solve_east_up(asc_path::AbstractString, desc_path::AbstractString,
     return solve_east_up(asc_img, desc_img, asc_los_map, desc_los_map)
 end
 
-function plot_eu(east, up; cmap="seismic_wide", vm=20, east_scale=1.0, title="")
+function plot_eu(east, up; cmap="seismic_wide_y", vm=20, east_scale=1.0, title="", show_cbar=false)
     fig, axes = plt.subplots(1, 2, sharex=true, sharey=true)
     axim1 = axes[1].imshow(up, cmap=cmap, vmin=-vm, vmax=vm)
     # fig.colorbar(axim1, ax=axes[1])
 
     vmeast = east_scale * vm
     axim2 = axes[2].imshow(east, cmap=cmap, vmin=-vmeast, vmax=vmeast)
-    # fig.colorbar(axim2, ax=axes[2])
+    show_cbar && fig.colorbar(axim2, ax=axes[2])
 
     axes[1].set_title("up")
     axes[2].set_title("east")
@@ -51,9 +51,9 @@ function plot_eu(east, up; cmap="seismic_wide", vm=20, east_scale=1.0, title="")
     return fig, axes
 end
 
-function demo_east_up(fn="velocities_prune_l1.h5"; dset="velos/1", full=false, vm=20, east_scale=1.0, shifta=0.0, shiftd=0.0)
+function demo_east_up(fn="velocities_prune_l1.h5"; dset="velos/1", full=false, vm=20, east_scale=1.0, shifta=0.0, shiftd=0.0, cmap="seismic_wide_y")
     if full
-        asc_path, desc_path = ("/data1/scott/pecos/path78-bbox2/igrams_looked/", "/data4/scott/path85/stitched/igrams_looked/")
+        asc_path, desc_path = ("/data1/scott/pecos/path78-bbox2/igrams_looked_18/", "/data4/scott/path85/stitched/igrams_looked_18/")
         asc_fname, desc_fname = map(x -> joinpath(x, fn), (asc_path, desc_path))
         asc_img, desc_img = MapImages.find_overlaps(asc_fname, desc_fname, dset)
 
@@ -68,7 +68,7 @@ function demo_east_up(fn="velocities_prune_l1.h5"; dset="velos/1", full=false, v
         asc_path, desc_path = ("/data3/scott/pecos/zoom_pecos_full_78/igrams_looked/", "/data3/scott/pecos/zoom_pecos_full_85/igrams_looked/", )
         east, up = solve_east_up(asc_path, desc_path, fn, fn, dset)
     end
-    fig, axes = plot_eu(east, up; cmap="seismic_wide", vm=vm, title="$fn: $dset", east_scale=east_scale)
+    fig, axes = plot_eu(east, up; cmap=cmap, vm=vm, title="$fn: $dset", east_scale=east_scale)
     # return east, up, fig, axes
     return east, up
 end
