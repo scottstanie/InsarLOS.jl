@@ -57,8 +57,8 @@ function demo_east_up(fn="velocities_prune_l1.h5"; dset="velos/1", full=false, v
         asc_fname, desc_fname = map(x -> joinpath(x, fn), (asc_path, desc_path))
         asc_img, desc_img = MapImages.find_overlaps(asc_fname, desc_fname, dset)
 
-        asc_los_map = MapImage(joinpath(asc_path, "los_map.h5"), "stack")
-        desc_los_map = MapImage(joinpath(desc_path, "los_map.h5"), "stack")
+        asc_los_map = MapImage(joinpath(asc_path, "los_map.h5"), dset_name="stack")
+        desc_los_map = MapImage(joinpath(desc_path, "los_map.h5"), dset_name="stack")
         #
         asc_idxs, desc_idxs = MapImages.find_overlap_idxs(asc_los_map, desc_los_map)
         # @show size(asc_los_map[asc_idxs..., :]), size(desc_los_map[desc_idxs..., :])
