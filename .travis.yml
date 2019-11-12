@@ -1,0 +1,18 @@
+language: julia
+os:
+  - linux
+    #   - osx
+julia:
+  - 1.2
+jobs:
+  include:
+    - stage: "Documentation"
+      julia: 1.2
+      os: linux
+      script:
+        - julia --project=docs/ -e 'using Pkg; Pkg.add("Documenter");
+                                               Pkg.add(PackageSpec(url="https://github.com/scottstanie/Sario.jl"));
+                                               Pkg.develop(PackageSpec(path=pwd()));
+                                               Pkg.instantiate()'
+        - julia --project=docs/ docs/make.jl
+      after_success: skip
