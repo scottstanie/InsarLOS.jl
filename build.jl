@@ -1,2 +1,2 @@
 using PackageCompiler
-@time build_executable("src/executable.jl", "insarlos")
+@time build_executable("scripts/executable.jl", "insarlos")
