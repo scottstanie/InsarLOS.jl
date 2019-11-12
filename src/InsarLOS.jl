@@ -431,7 +431,7 @@ end
 
 """Create a map with 3 layers (E, N, U) of the ENU vectors for every pixel within a demrsc"""
 function create_los_map(;directory=".", demrsc=nothing, outfile="los_map.h5", 
-                        dbpath=nothing, dbfile=nothing)
+                        full_elevation_dem=nothing, dbpath=nothing, dbfile=nothing)
     if isnothing(dbfile)
         isnothing(dbpath) && error("need dbfile or dbpath")
         @show dbpath
@@ -450,10 +450,12 @@ function create_los_map(;directory=".", demrsc=nothing, outfile="los_map.h5",
     timeorbit, xorbit, vorbit = read_orbit_vector(orbinfo_file)
 
 
-    # TODO: this is brittle
-    dem_file = replace(Sario.find_rsc_file(directory=".."), ".rsc" => "")
-    @show dem_file
-    dem = Sario.load(dem_file)
+    if isnothing(full_elevation_dem)
+        # TODO: this is brittle
+        dem_file = replace(Sario.find_rsc_file(directory=".."), ".rsc" => "")
+        @show dem_file
+        dem = Sario.load(dem_file)
+    end
 
     xx, yy = MapImages.grid(demrsc, sparse=true)
     enu_out = Array{Float64, 3}(undef, (length(yy), length(xx), 3))

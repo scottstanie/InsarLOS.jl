@@ -7,6 +7,7 @@ version = "0.1.0"
 Glob = "c27321d9-0574-5035-807b-f59d2c89b15c"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MapImages = "b89d2c5a-86c2-4db3-a52c-0318110165ea"
 SQLite = "0aa819cd-b072-5ff4-a722-6bc24af294d9"
 Sario = "dbf0e0cf-d002-4d20-9fd3-93cd71fe1271"
 
