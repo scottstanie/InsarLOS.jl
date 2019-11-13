@@ -1,5 +1,6 @@
 using HDF5
 using MapImages
+using MAT
 
 function solve_east_up(asc_img, desc_img, asc_los_map, desc_los_map)
     # @show size(asc_los_map), size(desc_los_map), size(asc_img), size(desc_img)
@@ -51,7 +52,7 @@ function plot_eu(east, up; cmap="seismic_wide_y", vm=20, east_scale=1.0, title="
     return fig, axes
 end
 
-function demo_east_up(fn="velocities_prune_l1.h5"; dset="velos/1", full=false, vm=20, east_scale=1.0, shifta=0.0, shiftd=0.0, cmap="seismic_wide_y")
+function demo_east_up(fn="velocities_prune_l1.h5"; dset="velos/1", full=false, vm=20, east_scale=1.0, shifta=0.0, shiftd=0.0, cmap="seismic_wide_y", show=true)
     if full
         asc_path, desc_path = ("/data1/scott/pecos/path78-bbox2/igrams_looked_18/", "/data4/scott/path85/stitched/igrams_looked_18/")
         asc_fname, desc_fname = map(x -> joinpath(x, fn), (asc_path, desc_path))
@@ -68,7 +69,9 @@ function demo_east_up(fn="velocities_prune_l1.h5"; dset="velos/1", full=false, v
         asc_path, desc_path = ("/data3/scott/pecos/zoom_pecos_full_78/igrams_looked/", "/data3/scott/pecos/zoom_pecos_full_85/igrams_looked/", )
         east, up = solve_east_up(asc_path, desc_path, fn, fn, dset)
     end
-    fig, axes = plot_eu(east, up; cmap=cmap, vm=vm, title="$fn: $dset", east_scale=east_scale)
+    if show
+        fig, axes = plot_eu(east, up; cmap=cmap, vm=vm, title="$fn: $dset", east_scale=east_scale)
+    end
     # return east, up, fig, axes
     return east, up
 end
@@ -83,3 +86,38 @@ function eastups(stations, east, up)
     end
     return easts, ups
 end
+
+function slope_mm_yr(dts, data)
+    # Convert to "days since start" for line fitting
+    gps_poly = fit_line(dts, data)
+    slope = length(gps_poly) == 2 ? Polynomials.coeffs(gps_poly)[2] : Polynomials.coeffs(gps_poly)[1]
+    return 365 * 10 * slope
+end
+
+function eastup_gps(stations, start_date=Date(2014,11,1), end_date=Date(2019,1,1))
+
+    easts, ups = [], []
+    for s in stations
+        dts, east, north, up = get_gps_enu(s)
+        push!(easts, slope_mm_yr(dts, east))
+        push!(ups, slope_mm_yr(dts, up))
+    end
+    return easts, ups
+end
+
+function save_east_up_decomp(fname="velocities_max700_sigma3_noshrink_avgpix.h5", shifta=-0.8, shiftd=-0.5, vm=12)
+# lats = read(ff, "lats");
+    # lons = read(ff, "lons");
+    east18, up18 = demo_east_up( ;full=true, dset="velos/1",  shifta=shifta, shiftd=shiftd, vm=vm)
+    # TODO: use hunjoos
+    latrange = (30.901666673336, 31.90000000028)
+    lonrange = (-104.0, -103.001666673056)
+    eastcut = east18[latrange, lonrange];
+    upcut = up18[latrange, lonrange];
+    gx, gy = MapImages.grid(east18.demrsc);
+    matwrite("zoom_pecos_vertical_east.mat", Dict("lats"=> gy, "lons" => gx, "up" => upcut ./ 10 ./ 365 .* 1147, "east" => eastcut ./ 10 ./ 365 .* 1147));
+end
+
+station_overlap = ["TXMH", "TXFS", "TXAD", "TXS3", "NMHB"]
+eeups(fname, shifta, shiftd, dset="velos/1", full=true, show=true) = extrema.(eastups(station_overlap, 
+                                                                           demo_east_up(fname ;full=full, dset=dset, shifta=shiftd, shiftd=shifta, show=show)...))
