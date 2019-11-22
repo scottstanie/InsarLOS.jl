@@ -21,18 +21,13 @@ const SOL = 299792458
 const MAP_FILENAME = "los_map.h5"
 
 
-"""Read the enu coefficients from a pre-computed LOS map by `create_los_map`"""
-get_los_enu(lat_lons::AbstractArray{<:AbstractFloat},
-            los_map_file::AbstractString=MAP_FILENAME) = read_los_map(lat_lons, los_map_file)
+"""
+    get_los_enu(lat_lons::AbstractArray{<:AbstractFloat, 2}; xyz_los_vecs=nothing, dbfile=nothing, param_dict=nothing)
 
-"""Calculate the LOS vector in ENU from a lat/lon Array
+Calculate the LOS vector in ENU from a lat/lon Array
 Can also take in the pre-computed xyz los vectors
 
-Args:
-    lat_lons (Array[float]): list of (lat, lon) coordinates to compute LOS vecs
-    Optional: xyz_los_vecs (list[tuple[float]]): list of xyz LOS vectors
-    Optional: dbfile to read orbit parameters
-
+`lat_lons` is `2 x N` for N different points
 """
 function get_los_enu(lat_lons::AbstractArray{<:AbstractFloat, 2}; xyz_los_vecs=nothing, 
                      dbfile=nothing, param_dict=nothing)
@@ -54,7 +49,7 @@ filepath(full_path) = joinpath(splitpath(full_path)[1:end-1]...)
 #
 # Start of fortran converted functions:
 
-"""Calculate the line of sight vector (from ground to satellite) in X,Y,Z coordinates at one lat/lon point"""
+"""Calculate the line of sight vector (from satellite to ground) in X,Y,Z coordinates at one lat/lon point"""
 function calculate_los_xyz(lat::T, lon::T; dbfile::Union{String, Nothing}=nothing, param_dict=nothing) where {T<:AbstractFloat}
     if isnothing(param_dict)
         if isnothing(dbfile)
@@ -117,7 +112,7 @@ function _compute_xyz_ground(lat, lon)
     dem_rsc_file = Sario.find_rsc_file(directory="../")
     demrsc = Sario.load(dem_rsc_file)
 
-    row, col = latlon_to_rowcol(demrsc, lat, lon)
+    row, col = MapImages.latlon_to_rowcol(demrsc, lat, lon)
     # println("($lat, $lon) is at ($row, $col)")
 
     dem_file = replace(dem_rsc_file, ".rsc" => "")
@@ -181,10 +176,8 @@ function compute_burst_vec(xyz_ground, param_dict, idx, timeorbit, xx, vv)
     # satv = vv[:, end]
 
     # @show satx, satv
-    # dr = xyz_ground - satx  ORIGINAL: pointing AWAY from satellite (hence -satx)
-    #
-    # We want away from ground, pointing up to satellite for land deformation purposes
-    dr = satx - xyz_ground
+    # Note: pointing AWAY from satellite (hence -satx)
+    dr = xyz_ground - satx
     vecr = dr / range
 
     return vecr
@@ -470,7 +463,7 @@ function create_los_map(;directory=".", demrsc=nothing, outfile="los_map.h5",
             y = yy[i]
             x = xx[j]
             xyz_los_vecs = calculate_los_xyz(y, x, dem, demrsc, param_dict, timeorbit, xorbit, vorbit)
-            # println("$y $x is at ", InsarTimeseries.latlon_to_rowcol(demrsc, y, x))
+            # println("$y $x is at ", MapImages.latlon_to_rowcol(demrsc, y, x))
             enu_out[i, j, :] = get_los_enu([y, x], xyz_los_vecs=xyz_los_vecs)
         end
     end
@@ -489,6 +482,8 @@ function create_los_map(;directory=".", demrsc=nothing, outfile="los_map.h5",
 end
 
 
+_check_oob(arr::AbstractArray, num) = @assert (num > minimum(arr) && num < maximum(arr)) "$num out of bounds for $(extrema(arr))"
+
 findnearest(A::AbstractArray, t) = findmin(abs.(A .- t))[2]
 
 """Given an array of lat/lon points, read the E,N,U coeffs from the LOS map"""
@@ -497,7 +492,9 @@ function read_los_map(lat_lons::AbstractArray{<:AbstractFloat, 2}, los_map::Abst
     out = Array{eltype(lat_lons), 2}(undef, (3, num_points))
     for i = 1:num_points
         lat, lon = lat_lons[:, i]
+        _check_oob(lats, lat)
         row = findnearest(lats, lat)
+        _check_oob(lats, lat)
         col = findnearest(lons, lon)
         out[:, i] = los_map[row, col, :]
     end
