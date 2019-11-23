@@ -28,7 +28,7 @@ function rotate_xyz_to_enu(xyz, lat, lon)
     # Rotate about axis 3 with longitude, then axis 1 with latitude
     R3 = rot(90 + lon, 3, in_degrees=true)
     R1 = rot(90 - lat, 1, in_degrees=true)
-    return (R3 * R1) * xyz
+    return R1 * (R3 * xyz)
 end
 
 
