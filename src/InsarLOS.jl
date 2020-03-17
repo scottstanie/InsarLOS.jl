@@ -486,26 +486,29 @@ _check_oob(arr::AbstractArray, num) = @assert (num > minimum(arr) && num < maxim
 
 findnearest(A::AbstractArray, t) = findmin(abs.(A .- t))[2]
 
-"""Given an array of lat/lon points, read the E,N,U coeffs from the LOS map"""
-function read_los_map(lat_lons::AbstractArray{<:AbstractFloat, 2}, los_map::AbstractArray{<:AbstractFloat, 3}, lats, lons)
+
+function read_los_map(lat_lons::AbstractArray{<:AbstractFloat, 2}, los_map_file::String=MAP_FILENAME)
+    los_map = permutedims(h5read(los_map_file, "stack"), (2, 1, 3))
+    gridlats = h5read(los_map_file, "lats")
+    gridlons = h5read(los_map_file, "lons")
+    return read_los_map(lat_lons, los_map, gridlats, gridlons)
+end
+
+# """Given an array of lat/lon points, read the E,N,U coeffs from the LOS map"""
+function read_los_map(lat_lons::AbstractArray{<:AbstractFloat, 2}, los_map::AbstractArray{<:AbstractFloat, 3}, gridlats, gridlons)
     num_points = size(lat_lons, 2)
     out = Array{eltype(lat_lons), 2}(undef, (3, num_points))
     for i = 1:num_points
         lat, lon = lat_lons[:, i]
-        _check_oob(lats, lat)
-        row = findnearest(lats, lat)
-        _check_oob(lats, lat)
-        col = findnearest(lons, lon)
+        _check_oob(gridlats, lat)
+        row = findnearest(gridlats, lat)
+
+        _check_oob(gridlons, lon)
+        col = findnearest(gridlons, lon)
+
         out[:, i] = los_map[row, col, :]
     end
     return out
-end
-
-function read_los_map(lat_lons::AbstractArray{<:AbstractFloat, 2}, los_map_file::String=MAP_FILENAME)
-    los_map = permutedims(h5read(los_map_file, "stack"), (2, 1, 3))
-    lats = h5read(los_map_file, "lats")
-    lons = h5read(los_map_file, "lons")
-    return read_los_map(lat_lons, los_map, lats, lons)
 end
 
 read_los_map(lat_lons::AbstractArray{<:AbstractFloat, 1}, los_map_file::String=MAP_FILENAME) = read_los_map(reshape(lat_lons, :, 1), los_map_file)
