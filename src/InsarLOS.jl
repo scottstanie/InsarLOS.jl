@@ -433,7 +433,7 @@ function create_los_map(;directory=".", demrsc=nothing, outfile="los_map.h5",
     @show dbfile
 
     if isnothing(demrsc)
-        demrsc = Sario.load(joinpath(directory, "dem.rsc"))
+        demrsc = Sario.load(Sario.find_rsc_file(directory))
     end
 
     param_dict = load_all_params(dbfile)
@@ -447,7 +447,7 @@ function create_los_map(;directory=".", demrsc=nothing, outfile="los_map.h5",
         # TODO: this is brittle
         dem_file = replace(Sario.find_rsc_file(directory=".."), ".rsc" => "")
         @show dem_file
-        dem = Sario.load(dem_file)
+        full_elevation_dem = Sario.load(dem_file)
     end
 
     xx, yy = MapImages.grid(demrsc, sparse=true)
@@ -462,7 +462,7 @@ function create_los_map(;directory=".", demrsc=nothing, outfile="los_map.h5",
             # @show i, j, y, x
             y = yy[i]
             x = xx[j]
-            xyz_los_vecs = calculate_los_xyz(y, x, dem, demrsc, param_dict, timeorbit, xorbit, vorbit)
+            xyz_los_vecs = calculate_los_xyz(y, x, full_elevation_dem, demrsc, param_dict, timeorbit, xorbit, vorbit)
             # println("$y $x is at ", MapImages.latlon_to_rowcol(demrsc, y, x))
             enu_out[i, j, :] = get_los_enu([y, x], xyz_los_vecs=xyz_los_vecs)
         end
