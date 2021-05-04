@@ -20,9 +20,6 @@ Args:
 
 Reference: https://gssc.esa.int/navipedia/index.php/Transformations_between_ECEF_and_ENU_coordinates
 
-Example:
->>> rotate_xyz_to_enu([-2, -3, 1], 0, 0)
-[ 1.,  2.,  3.]
 """
 function rotate_xyz_to_enu(xyz, lat, lon)
     # Rotate about axis 3 with longitude, then axis 1 with latitude
